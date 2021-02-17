@@ -1,0 +1,674 @@
+1---
+title: '`r geneName_doc <- params$gene; paste0("Target Expression profiling for ", geneName_doc)`'
+author: "Onishi-Seebacher, Megumi and Sanchez, Carlos"
+date: '`r format(Sys.Date(),"%e %B, %Y")`'
+output:
+  pdf_document: 
+    fig_width: 7
+    number_sections: yes
+    toc: yes
+    latex_engine: xelatex
+  word_document:
+    toc: true
+    toc_depth: 3 
+
+    reference_docx: "template.docx"
+  html_document:
+    toc: true
+    toc_depth: 3
+    theme: united
+    toc_float: true
+    number_sections: true
+always_allow_html: yes
+
+---
+
+```{r paquetes, echo = FALSE, eval = FALSE, include=FALSE}
+
+install.packages("class")   #knn
+install.packages("gmodels")   #CrossTable
+install.packages("kableExtra")
+install.packages("xtable")
+install.packages("tinytex")
+install.packages("cowplot")
+install.packages("latexpdf")
+devtools::install_github('yihui/tinytex')
+install.packages("grid")
+install.packages("gridExtra")
+install.packages("flextable")
+
+```
+
+
+```{r librerias, echo=FALSE, include=FALSE}
+library(knitr)  #kable
+library(kableExtra)
+library(pander)
+library(flextable)
+library(xtable)
+library(tinytex)
+library(cowplot)
+library(latexpdf)
+library(tinytex)
+library(grid)
+library(gridExtra) 
+```
+
+```{r, echo=FALSE, eval=TRUE}
+
+options(tinytex.verbose = TRUE)
+knitr::opts_chunk$set(eval = TRUE, echo = FALSE, warning = FALSE, error = FALSE)
+```
+
+```{r}
+
+selected_DB <- as.vector(DB_summary()$Databases)
+
+```
+
+
+```{r}
+#Selected DB and expressed DB
+
+input_species <- as.vector(unique(DB_summary()[,1]))
+
+expressed_species <- as.vector(unique(DB_summary()[,1][DB_summary()[,8]!=""]))
+
+no_expressed_species <- setdiff(input_species, expressed_species)
+
+```
+
+```{r}
+summary_enriched <- summary_enriched() %>%
+  arrange(match(Expression, c('high', 'moderate', 'low', 'below cutoff'))) %>%
+  distinct(groupTissue, .keep_all = TRUE)
+
+summary_enriched$groupTissue <- ifelse (summary_enriched$Enrichment>3,  paste0(summary_enriched$groupTissue, "***"), 
+                                     ifelse (summary_enriched$Enrichment>2, paste0(summary_enriched$groupTissue, "**"), 
+                                             ifelse (summary_enriched$Enrichment>1, paste0(summary_enriched$groupTissue, "*"), as.character(summary_enriched$groupTissue))))
+
+```
+
+
+
+# Introduction
+
+Cross-tissue mRNA expression of `r params$gene` was assessed in available tissues of the following species: `r paste0( input_species, collapse = ", ")`.
+
+
+```{r DBUsed}
+DB <- DB_Used()
+DB <- DB[,1:6]
+DB <- flextable(DB)
+DB <- autofit(DB)
+DB <- theme_vanilla(DB)
+DB <- fontsize(DB, size = 9, part = "header")
+DB <- fontsize(DB, size = 8)
+DB <- align_text_col(DB, align = "left")
+
+```
+
+
+
+# Results
+
+`r params$gene` is statistically enriched in the following tissues:  **`r gsub("\\*", "&ast;", paste0( unique(unlist(strsplit(as.character(summary_enriched[,1]), ", "))), collapse = ", "))`**. 
+
+###### (*** ZScore > 3   |   ** 3 > ZScore > 2   |   * 2 > ZScore > 1)
+
+`r params$gene` expression was enriched in the following species: `r paste0( expressed_species, collapse = ", ")`. 
+
+`r ifelse(rlang::is_empty(no_expressed_species), "", paste0("No data was available for ", paste0(no_expressed_species, collapse = ", ")))`
+
+
+
+Expression values per tissue in individual species and data sets can be found in Section 4. A summary heatmap can be found in Figure 4.2. The list of tissues per species and datasets expressing `r params$gene` are shown in Table 5.3. 
+
+# Materials and Methods
+
+The list of available databases in the current version is:
+
+```{r}
+DB
+
+```
+
+## Data selection
+
+
+The data for `r params$gene` is retrieved from the following databases:
+
+`r if(any(grepl("DIS", params$DB_selected)) || 'All' %in% params$DB_selected){
+
+"+ **[DIS Atlas](http://compare.eu.novartis.net/atlas)** is a Novartis (PCS/DIS) database containing microarray gene data from human, monkey, mouse, rat, and dog normal tissues. The data is MAS5 normalized. The human HG-U133_Plus_2 chip was used for the analysis of the Macaca fascicularis transcript expression."
+
+}`
+
+
+`r if('GTEx' %in% params$DB_selected || 'All' %in% params$DB_selected){
+
+"+ **[GTEX](https://gtexportal.org/home/)** is an external database that contains human RNA-sequencing gene expression data for a large number of tissues. The data is normalized by TPM (transcripts per kilobase million)."
+
+}`
+
+`r if('HPA' %in% params$DB_selected || 'All' %in% params$DB_selected){
+
+"+ **[The Human Protein Atlas (HPA)](https://www.proteinatlas.org/)** aims to map all the human proteins in cells, tissues and organs using integration of various omics technologies, including antibody-based imaging, mass spectrometry-based proteomics, transcriptomics and systems biology. The data is normalized by TPM (transcripts per kilobase million)."
+
+}`
+
+`r if(any(grepl("NHPRTR", params$DB_selected)) || 'All' %in% params$DB_selected){
+
+"+ **[Nonhuman primate reference transcriptome resource (NHPRTR)](http://nhprtr.org/)**, aims to generate comprehensive RNA-seq data from a wide variety of non-human primates (NHPs), from lemurs to hominids. The data is normalized by FPKM (Fragments per kilobase million)."
+    
+}`
+
+
+`r if('BarkBase' %in% params$DB_selected || 'All' %in% params$DB_selected){
+
+"+ **[BarkBase](http://www.barkbase.org/)**, a canine epigenomic resource, hosts data for 27 adult tissue types with biological replicates from multiple dog breeds. The data is normalized by CPM (Counts per million)."
+    
+}`
+
+
+`r if('BioGPS_Mouse' %in% params$DB_selected || 'BioGPS_Mouse2' %in% params$DB_selected || 'BioGPS_Human' %in% params$DB_selected ||'All' %in% params$DB_selected){
+
+"+ **[BioGPS](http://biogps.org/#goto=welcome)** is a publically accessible gene portal containing microarray gene expression data from tissues of different species. The human U133A/GNF1H Gene Atlas (GSE1133) data and/or the mouse GeneAtlas (GSE10246) data was used. The data is GC-RMA normalized."
+    
+}`
+
+`r if('Mouse_MTAB6081' %in% params$DB_selected || 'Rat_MTAB6081' %in% params$DB_selected ||'All' %in% params$DB_selected){
+
+"+ **MTAB6081 ([DOI: 10.1038/sdata.2017.185](http://doi.org/10.1038/sdata.2017.185))** provides a comprehensive RNA-Seq dataset across the same 13 tissues from three male C57BL6 mice and three male Han Wistar rats. They also describe their bioinformatics pipeline to process and technically validate the data."
+    
+}`
+
+
+## Probe selection
+
+
+* Probes with mean expression levels greater than `r params$microarrayCutoff` have been plotted. 
+
+* When multiple probe sets per gene were present, the one with biggest mean is selected by default, being able to select and display the rest later by selecting on the cascading drop down.
+
+## Heatmap of enriched tissues accross datasets
+
+* Tissues with an enrichment z-score>`r params$ZScoreCutoff` when comparing its mean value with the rest of tissues for this gene, and with cutoff above `r params$microarrayCutoff` or 0.5 (RNAseq) were considered for the heatmap.
+
+* Enrichment levels are based on enrichment z-scores (number of standard deviations from mean), which are calculated per tissue using the mean expression per tissue. The color of the circles are determined using the binned values shown in Table 5.1
+
+* The binned median expression of the mean expression values per tissue per dataset is determined using the cutoffs as shown in Table 5.2.
+
+
+
+
+
+
+# Figures
+
+## Expression levels by tissue
+
+```{r count}
+count <- length(selected_DB) + 2
+
+
+```
+
+
+`r if("DIS_Atlas_Human" %in% selected_DB & dim(E_gene20())[1]>0 ){"### Homo sapiens, DIS Atlas, microarray"}`
+
+```{r DIS_Atlas_Human, fig.width = 7, dpi=600, eval=opts_current$get("label") %in% selected_DB}
+
+if (nrow(E_gene20())>0) {
+  graph(E_gene20(), ytext = 8, angle_x = 90, vjust_x = 0.5, dotsize = 1, showLegend = "none")
+
+}
+```
+
+
+`r if("GTEx" %in% selected_DB & dim(E_gene1())[1]>0 ){"### Homo sapiens, GTEx, RNASeq"}`
+
+
+```{r GTEx, fig.width = 7, dpi=600, eval=opts_current$get("label") %in% selected_DB}
+
+if (nrow(E_gene1())>0) {
+  graph(E_gene1(), ytext = 8, angle_x = 90, vjust_x = 0.5, dotsize = 1, showLegend = "none")
+  
+} 
+
+```
+
+
+
+`r if("HPA" %in% selected_DB & dim(E_gene2())[1]>0 ){"### Homo sapiens, The Human Protein Atlas, RNASeq"}`
+
+```{r HPA, fig.width = 7, dpi=600, eval=opts_current$get("label") %in% selected_DB}
+
+if (nrow(E_gene2())>0) {
+  graph(E_gene2(), ytext = 8, angle_x = 90, vjust_x = 0.5, dotsize = 1, showLegend = "none")
+
+}
+
+```
+
+
+
+`r if("BioGPS_Human" %in% selected_DB & dim(E_gene9())[1]>0 ){"### Homo sapiens, BioGPS, microarray"}`
+
+```{r BioGPS_Human, fig.width = 7, dpi=600, eval=opts_current$get("label") %in% selected_DB}
+
+if (nrow(E_gene9())>0) {
+  graph(E_gene9(), ytext = 8, angle_x = 90, vjust_x = 0.5, dotsize = 1, showLegend = "none")
+
+} 
+```
+
+
+
+`r if("DIS_Atlas_Monkey" %in% selected_DB & dim(E_gene14())[1]>0 ){"### Macaca fascicularis, DIS Atlas, microarray"}`
+
+```{r DIS_Atlas_Monkey, fig.width = 7, dpi=600, eval=opts_current$get("label") %in% selected_DB}
+
+if (nrow(E_gene14())>0) {
+  graph(E_gene14(), ytext = 8, angle_x = 90, vjust_x = 0.5, dotsize = 1, showLegend = "none")
+
+}
+```
+
+
+
+`r if("NHPRTR_all_mac" %in% selected_DB & dim(macaque_DB_summary())[1]>0 ){"### Macaca fascicularis, NHPRTR - All macaques, RNASeq"}`
+
+```{r NHPRTR_all_mac, fig.width = 7, dpi=600, eval=opts_current$get("label") %in% selected_DB}
+
+if (nrow(macaque_DB_summary())>0) {
+  graph(macaque_DB_summary(), ytext = 8, angle_x = 90, vjust_x = 0.5, dotsize = 1, showLegend = "none")
+
+}
+```
+
+
+`r if("NHPRTR_CMC" %in% selected_DB & dim(macaque_DB_summary())[1]>0 ){"### Macaca fascicularis, NHPRTR - Cynomolgus Chinese, RNASeq"}`
+
+```{r NHPRTR_CMC, fig.width = 7, dpi=600, eval=opts_current$get("label") %in% selected_DB}
+
+if (nrow(macaque_DB_summary())>0) {
+  graph(macaque_DB_summary(), ytext = 8, angle_x = 90, vjust_x = 0.5, dotsize = 1, showLegend = "none")
+
+}
+```
+
+
+
+`r if("NHPRTR_CMM" %in% selected_DB & dim(macaque_DB_summary())[1]>0 ){"### Macaca fascicularis, NHPRTR - Cynomolgus Mauritian, RNASeq"}`
+
+```{r NHPRTR_CMM, fig.width = 7, dpi=600, eval=opts_current$get("label") %in% selected_DB}
+
+if (nrow(macaque_DB_summary())>0) {
+  graph(macaque_DB_summary(), ytext = 8, angle_x = 90, vjust_x = 0.5, dotsize = 1, showLegend = "none")
+
+}
+```
+
+
+`r if("NHPRTR_JMI" %in% selected_DB & dim(macaque_DB_summary())[1]>0 ){"### Macaca fascicularis, NHPRTR - Cynomolgus Japanese, RNASeq"}`
+
+```{r NHPRTR_JMI, fig.width = 7, dpi=600, eval=opts_current$get("label") %in% selected_DB}
+
+if (nrow(macaque_DB_summary())>0) {
+  graph(macaque_DB_summary(), ytext = 8, angle_x = 90, vjust_x = 0.5, dotsize = 1, showLegend = "none")
+
+}
+```
+
+
+`r if("NHPRTR_RMI" %in% selected_DB & dim(macaque_DB_summary())[1]>0 ){"### Macaca fascicularis, NHPRTR - Rhesus Indian, RNASeq"}`
+
+```{r NHPRTR_RMI, fig.width = 7, dpi=600, eval=opts_current$get("label") %in% selected_DB}
+
+if (nrow(macaque_DB_summary())>0) {
+  graph(macaque_DB_summary(), ytext = 8, angle_x = 90, vjust_x = 0.5, dotsize = 1, showLegend = "none")
+
+}
+```
+
+`r if("DIS_Atlas_Dog" %in% selected_DB & dim(E_gene15())[1]>0 ){"### Canis familiaris, DIS Atlas, microarray"}`
+
+```{r DIS_Atlas_Dog, fig.width = 7, dpi=600, eval=opts_current$get("label") %in% selected_DB}
+  
+if (nrow(E_gene15())>0) {
+  graph(E_gene15(), ytext = 8, angle_x = 90, vjust_x = 0.5, dotsize = 1, showLegend = "none")
+
+}
+```
+
+
+`r if("BarkBase" %in% selected_DB & dim(E_gene3())[1]>0 ){"### Canis familiaris, BarkBase, RNASeq"}`
+
+```{r BarkBase, fig.width = 7, dpi=600, eval=opts_current$get("label") %in% selected_DB}
+
+if (nrow(E_gene3())>0) {
+  graph(E_gene3(), ytext = 8, angle_x = 90, vjust_x = 0.5, dotsize = 1, showLegend = "none")
+
+}
+```
+
+
+
+
+`r if("Minipig_Atlas" %in% selected_DB & dim(E_gene11())[1]>0 ){"### Sus scrofa domesticus, Minipig Atlas, RNASeq"}`
+
+```{r Minipig_Atlas, fig.width = 7, dpi=600, eval=opts_current$get("label") %in% selected_DB}
+
+if (nrow(E_gene11())>0) {
+  graph(E_gene11(), ytext = 8, angle_x = 90, vjust_x = 0.5, dotsize = 1, showLegend = "none")
+
+}
+```
+
+
+`r if("DIS_Atlas_Rat" %in% selected_DB & dim(E_gene16())[1]>0 ){"### Rattus norvegicus, DIS Atlas, microarray"}`
+
+```{r DIS_Atlas_Rat, fig.width = 7, dpi=600, eval=opts_current$get("label") %in% selected_DB}
+
+if (nrow(E_gene16())>0) {
+  graph(E_gene16(), ytext = 8, angle_x = 90, vjust_x = 0.5, dotsize = 1, showLegend = "none")
+
+}
+```
+
+
+
+
+`r if("Ratlas" %in% selected_DB & dim(E_gene10())[1]>0 ){"### Rattus norvegicus, Ratlas, RNASeq"}`
+
+```{r Ratlas, fig.width = 7, dpi=600, eval=opts_current$get("label") %in% selected_DB}
+
+if (nrow(E_gene10())>0) {
+  graph(E_gene10(), ytext = 8, angle_x = 90, vjust_x = 0.5, dotsize = 1, showLegend = "none")
+
+}
+
+```
+
+
+
+`r if("Rat_MTAB6081" %in% selected_DB & dim(E_gene13())[1]>0 ){"### Rattus norvegicus, MTAB6081, RNASeq"}`
+
+```{r Rat_MTAB6081, fig.width = 7, dpi=600, eval=opts_current$get("label") %in% selected_DB}
+
+if (nrow(E_gene13())>0) {
+  graph(E_gene13(), ytext = 8, angle_x = 90, vjust_x = 0.5, dotsize = 1, showLegend = "none")
+
+}
+
+```
+
+
+
+
+
+
+`r if("DIS_Atlas_Mouse" %in% selected_DB & dim(E_gene17())[1]>0 ){"### Mus musculus, DIS Atlas, microarray"}`
+
+```{r DIS_Atlas_Mouse, fig.width = 7, dpi=600, eval=opts_current$get("label") %in% selected_DB}
+
+if (nrow(E_gene17())>0) {
+  graph(E_gene17(), ytext = 8, angle_x = 90, vjust_x = 0.5, dotsize = 1, showLegend = "none")
+
+}
+```
+
+
+
+
+`r if("BioGPS_Mouse" %in% selected_DB & dim(E_gene7())[1]>0 ){"### Mus musculus, BioGPS (GNF1M), microarray"}`
+
+```{r BioGPS_Mouse, fig.width = 7, dpi=600, eval=opts_current$get("label") %in% selected_DB}
+
+if (nrow(E_gene7())>0) {
+  graph(E_gene7(), ytext = 8, angle_x = 90, vjust_x = 0.5, dotsize = 1, showLegend = "none")
+
+} 
+```
+
+
+
+`r if("BioGPS_Mouse2" %in% selected_DB & dim(E_gene8())[1]>0 ){"### Mus musculus, BioGPS (MOE403), microarray"}`
+
+```{r BioGPS_Mouse2, fig.width = 7, dpi=600, eval=opts_current$get("label") %in% selected_DB}
+
+if (nrow(E_gene8())>0) {
+  graph(E_gene8(), ytext = 8, angle_x = 90, vjust_x = 0.5, dotsize = 1, showLegend = "none")
+
+}
+```
+
+
+
+`r if("Mouse_MTAB6081" %in% selected_DB & dim(E_gene12())[1]>0 ){"### Mus musculus, MTAB6081, RNASeq"}`
+
+```{r Mouse_MTAB6081, fig.width = 7, dpi=600, eval=opts_current$get("label") %in% selected_DB}
+
+if (nrow(E_gene12())>0) {
+  graph(E_gene12(), ytext = 8, angle_x = 90, vjust_x = 0.5, dotsize = 1, showLegend = "none")
+
+
+} 
+```
+
+
+
+### Legend
+
+```{r plot_legend, fig.width = 7, fig.height=1.2, dpi=600}
+
+myColors <- c("#F8766D", "#CC3232", "#E7861B", "#AFA100", "#72B000", "#00B81F", "#00C08D", "#00BFC4", "#00ABFD", "#7997FF", "#DC71FA", "#F763E0", "#FF65AE")
+
+DB_legend <-      if(dim(E_gene7())[1]>0){E_gene7()           #Sorted DB according to the number of different tissue system they have
+            }else if(dim(E_gene8())[1]>0){E_gene8()
+            }else if(dim(E_gene9())[1]>0){E_gene9()
+            }else if(dim(E_gene11())[1]>0){E_gene11()
+            }else if(dim(E_gene14())[1]>0){E_gene14()
+            }else if(dim(E_gene15())[1]>0){E_gene15()
+            }else if(dim(E_gene16())[1]>0){E_gene16()
+            }else if(dim(E_gene17())[1]>0){E_gene17()
+            }else if(dim(E_gene20())[1]>0){E_gene20()
+            }else if(dim(E_gene2())[1]>0){E_gene2()
+            }else if(dim(E_gene3())[1]>0){E_gene3()
+            }else if(dim(E_gene1())[1]>0){E_gene1()
+            }else if(dim(macaque_DB_summary())[1]>0){macaque_DB_summary()
+            }else if(dim(E_gene10())[1]>0){E_gene10()
+            }else if(dim(E_gene12())[1]>0){E_gene12()
+            }else {E_gene13()}
+
+my_hist <- ggplot(DB_legend, aes(groupTissue, fill = Tissue_type)) + 
+  
+  geom_bar() +
+  scale_fill_manual(values = myColors) +
+
+  theme(legend.position = "bottom",  
+  legend.justification = "center",
+  legend.title = element_blank(),
+  text=element_text(size=6.5))
+
+legend <- cowplot::get_legend(my_hist)
+
+grid.draw(legend)
+
+```
+
+
+
+```{r, include=FALSE, eval=FALSE}
+tmp <- ggplot_gtable(ggplot_build(graph(E_gene1(), 9)))
+leg <- which(sapply(tmp$grobs, function(x) x$name) ==  "guide-box")
+tmp$grobs[[leg]]
+```
+
+
+## Enrichment z-scores of selected tissues
+
+Enrichment z-scores and significance of selected tissues (those with z-score greater than `r params$ZScoreCutoff`) across species and datasets. The size of the circle corresponds to to the expression level and the color represents the level of enrichment. No dot denotes no matching tissue name.
+Median expression of the gene across datasets are binned according to Table 5.2.
+
+
+
+```{r heatmap, fig.width = 10, fig.height = 9, dpi=1000}
+heatmap_plot(circle_size=0.8, axis_size=7, heatmap_sum())
+
+```
+
+
+# Tables
+
+## Aproximate enrichment level categories
+
+The color of the circles represent the degree of enrichment where:
+
+```{r}
+
+enrichment <- data.frame(
+  Z_Score  =  c("< 1", "1 - 2", "2 - 3", "> 3"),
+  Enrichment  =  c("Below cutoff", "Lowly enriched", "Moderated enriched", "Highly enriched"),
+  stringsAsFactors = FALSE )
+
+ZS <-flextable(enrichment)
+ZS <- theme_vanilla(ZS)
+ZS <- fontsize(ZS, size = 9, part = "header")
+ZS <- fontsize(ZS, size = 8)
+
+ZS <- autofit(ZS)
+(ZS <- flextable::align(ZS, align = "left", part = "all"))
+```
+
+&nbsp;
+
+## Aproximate expression level categories
+
+The size of the circles represent the expression value of the gene. The cutoffs were adapted from the [EMBL-EBI](https://www.ebi.ac.uk/gxa/FAQ.html#blHeatmapColours).
+
+
+```{r}
+expression <- data.frame(
+  technology = c("microarray", "RNA-seq"),
+  cutoff = c(params$microarrayCutoff, 0.5),
+  low = c("below 100", "below 10"),
+  moderate = c("below 1000", "below 1000"),
+  high = c("above 1000", "above 1000"),
+  stringsAsFactors = FALSE )
+
+  
+exp <-flextable(expression)
+exp <- theme_vanilla(exp)
+exp <- fontsize(exp, size = 9, part = "header")
+exp <- fontsize(exp, size = 8)
+
+exp <- autofit(exp)
+(exp <- flextable::align( exp, align = "left", part = "all" ))
+
+```
+
+&nbsp;
+
+
+## Enriched tissues
+
+Enriched tissues refer to tissues with enrichment z-score > 1 (\*), z-score > 2 (\*\*) and z-score > 3 (\*\*\*).
+
+
+
+```{r}
+
+ft2 <- function(size1, size2){
+  ft <- flextable(DB_summary())
+  ft <- theme_vanilla(ft)
+  ft <- fontsize(ft, size = size1, part = "header")
+  ft <- fontsize(ft, size = size2, part = "body")
+  ft <- bold(ft, part = "header")
+  ft <- width(ft, j = c(3,6,7,9,10), width = c(0.7,0.5,1.5,0.5,0.5))
+  
+  ft
+  
+}
+```
+
+
+```{r}
+doc.type <- knitr::opts_knit$get('rmarkdown.pandoc.to')
+
+if (doc.type == "docx") { 
+  
+ft2(7,5)
+
+} else { 
+  
+ft2(9,8)
+  }
+```
+
+
+## Enriched tissues by species:
+
+From the point of view of the tissues, the different species that are statistically enriched are:
+
+
+```{r tissueSpecies, ft.align="center"}
+ST <-flextable(tissueSpecies())
+ST <- theme_vanilla(ST)
+ST <- fontsize(ST, size = 7, part = "header")
+ST <- fontsize(ST, size = 5)
+
+ST <- width(ST, width = 1.5)
+
+(ST <- align_text_col(ST, align = "left"))
+
+```
+
+
+By species, the tissues where the gene is enriched are:
+
+```{r speciesTissue, ft.align="center"}
+ST <-flextable(speciesTissue())
+ST <- theme_vanilla(ST)
+ST <- fontsize(ST, size = 7, part = "header")
+ST <- fontsize(ST, size = 5)
+
+ST <- autofit(ST)
+ ST <- width(ST, width = 1.5)
+(ST <- align_text_col(ST, align = "left"))
+
+```
+
+
+
+###### (*** ZScore > 3   |   ** 3 > ZScore > 2   |   * 2 > ZScore > 1)
+
+
+
+```{r, echo = FALSE, eval = FALSE, include=FALSE}
+
+ pander(head(singleDB(E_gene1())))
+ 
+ 
+ pander(head(singleDB(E_gene2())))
+
+ 
+ pander(head(singleDB(E_gene3())))
+```
+
+
+
+
+
+# Session Info
+
+
+
+```{r sessionInfo, ft.align='left'}
+print(paste0("Data was generated using Target Expression profiling ", TEP_Version))
+
+sessionInfo()
+```
+
+

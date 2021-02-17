@@ -1,0 +1,8 @@
+packrat/lib*
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+TEP_Shiny.RData
+rubbish
+packrat/lib*/

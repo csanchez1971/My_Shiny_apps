@@ -1,0 +1,577 @@
+---
+title: "txtimport"
+author: "CSR"
+date: "3/12/2020"
+output: 
+html_document
+---
+
+This script will retrieve and arrange the different databases to be used from internet and internal locations. It will also create the other dataframes that will be used when running the app (Atlas dictionary, annotation files, etc.).
+
+Once run the full script, the result will be a `TEP_Shiny-RData`, that will be the main database used on the app.
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages, eval=FALSE}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+BiocManager::install(c("org.Hs.eg.db","org.Rn.eg.db","org.Mm.eg.db", "org.Ss.eg.db", "org.Cf.eg.db", "EDASeq"))
+BiocManager::install("org.Ss.eg.db")
+install.packages(BiomaRt)
+```
+
+
+```{r libraries}
+
+# BiocManager::install("EDASeq")
+library (EDASeq)
+library(CePa)   #for read.gct() function
+library(dplyr)
+library(biomaRt)
+library(org.Hs.eg.db)
+library(org.Rn.eg.db)
+library(org.Mm.eg.db)
+library(org.Ss.eg.db)
+library(org.Cf.eg.db)
+library(dplyr)
+
+```
+
+
+
+#### Atlas Dictionary
+
+
+Load of the Atlas Dictionary and filter the rows where all values are NA. If new databases need to be included, a new column with the translation names should be included.
+
+
+```{r Atlas_Dictionary}
+Atlas_Dictionary_final <- read.csv("/dlab/NGS/bioinformatics/PCS/DIPGENOMICS/TEP_Shiny_data/version_0.9/data/Atlas_Dictionary_final.csv")
+
+Atlas_Dictionary_final <- Atlas_Dictionary_final[apply(Atlas_Dictionary_final[,3:(length(Atlas_Dictionary_final)-5)], 1, function(x)any(x != '')),]   #Remove lines without values
+Atlas_Dictionary_final <- dplyr::select(Atlas_Dictionary_final, -c("DISPLAY_LEVEL", "DISPLAY_ORDER", "original.order"))
+Atlas_Dictionary_final$Tissue_type<- droplevels(Atlas_Dictionary_final$Tissue_type)
+
+```
+
+
+
+####geneID
+
+Here we download the different gene names and their translation into human Ensembl and homologs
+
+```{r geneID}
+
+geneID <- biomaRt::select(org.Hs.eg.db,
+                          keys = keys(org.Hs.eg.db),
+                          columns=c("ENSEMBL","SYMBOL","GENENAME"),
+                          keytype="ENTREZID") %>% 
+  filter(!is.na(ENSEMBL))
+
+mart1 = useMart("ensembl", dataset="hsapiens_gene_ensembl")
+
+
+#Human-Rat gene name conversion
+
+mart3 = useMart("ensembl", dataset="rnorvegicus_gene_ensembl")
+
+Human_rat <- getLDS(attributes=c("hgnc_symbol"),
+                    filters="hgnc_symbol", values=geneID$SYMBOL, mart=mart1,
+                    attributesL=c("ensembl_gene_id"), martL=mart3)
+
+geneID_rat2 <- biomaRt::select(org.Rn.eg.db, 
+                               keys = keys(org.Rn.eg.db,keytype="ENSEMBL"), 
+                               columns = c("SYMBOL","GENENAME"), 
+                               keytype = "ENSEMBL")
+
+geneID_rat <- merge(geneID_rat2, Human_rat, by.x = "ENSEMBL", by.y ="Gene.stable.ID" )  #Merge tables human gene name - Mouse Ensembl/gene name 
+
+
+
+
+#Human-Mouse gene name conversion
+
+mart2 = useMart("ensembl", dataset="mmusculus_gene_ensembl") 
+
+Human_mouse <- getLDS(attributes=c("hgnc_symbol"),   #get conversion Human gene name - Mouse Ensembl name
+                      # filters="hgnc_symbol", 
+                      values=geneID$SYMBOL, mart=mart1,
+                      attributesL=c("ensembl_gene_id"),martL=mart2)
+
+
+geneID_mouse2 <- biomaRt::select(org.Mm.eg.db,   #Conversion Mouse Ensembl name - Mouse gene name
+                                 keys = keys(org.Mm.eg.db, keytype="ENSEMBL"), 
+                                 columns = c("SYMBOL","GENENAME"), 
+                                 keytype = "ENSEMBL")
+
+geneID_mouse <- merge(geneID_mouse2,Human_mouse, by.x = "ENSEMBL", by.y ="Gene.stable.ID" )  #Merge tables human gene name - Mouse Ensembl/gene name 
+
+
+
+#Human-Dog gene name conversion
+
+mart4 = useMart("ensembl", dataset="clfamiliaris_gene_ensembl")
+
+Human_dog <- getLDS(attributes=c("hgnc_symbol"),   #
+                    # filters="hgnc_symbol", values=geneID$SYMBOL, mart=mart1,
+                    values=geneID$SYMBOL, mart=mart1,
+                    
+                    attributesL=c("ensembl_gene_id"),martL=mart4)
+
+
+geneID_dog2 <- biomaRt::select(org.Cf.eg.db,   
+                               keys = keys(org.Cf.eg.db, keytype="ENSEMBL"), 
+                               columns = c("SYMBOL","GENENAME"), 
+                               keytype = "ENSEMBL")
+
+geneID_dog <- merge(geneID_dog2,Human_dog, by.x = "ENSEMBL", by.y ="Gene.stable.ID" )  
+
+
+
+#Human-Minipig gene name conversion
+
+mart5 = useMart("ensembl", dataset="sscrofa_gene_ensembl")
+
+geneID_minipig <- getLDS(attributes=c("hgnc_symbol"), 
+                         # filters="hgnc_symbol", values=geneID$SYMBOL, mart=mart1,
+                         values=geneID$SYMBOL, mart=mart1,
+                         
+                         attributesL=c("hgnc_symbol"),martL=mart5)
+
+
+```
+
+
+New translation table for Mouse/Rat (BiomaRt had some missing genes)
+
+```{r}
+human_all_organism <- read.delim2("/dlab/NGS/bioinformatics/PCS/DIPGENOMICS/TEP_Shiny_data/version_0.9/data/human_all_organism.txt", stringsAsFactors = F)
+human_all_organism <- human_all_organism[,c(1,2,4)]
+human_all_organism$`Common.Organism.Name`[human_all_organism$`Common.Organism.Name`=="mouse, laboratory"] <- "mouse"
+human_all_organism$`Common.Organism.Name`[human_all_organism$`Common.Organism.Name`=="dog, domestic"] <- "dog"
+human_all_organism <- human_all_organism[human_all_organism$Common.Organism.Name %in% c("human", "mouse", "rat", "dog", "macaque, rhesus"),]
+# human_all_organism <- pivot_wider(human_all_organism, names_from = Common.Organism.Name, values_from = Symbol, values_fn = toString)
+
+
+```
+
+
+
+####Novartis DIS Atlas (Control data)
+
+Load into the system the internal DIS Atlas databases stored on below's link:.
+
+```{r DIS_Atlas}
+load("/dlab/NGS/bioinformatics/PCS/DIPGENOMICS/TEP_Shiny_data/version_0.9/data/mas5_control_data.rda")
+
+DIS_human <- as.data.frame(mas5_control_data[1])
+DIS_monkey <- as.data.frame(mas5_control_data[2])
+DIS_dog <- as.data.frame(mas5_control_data[3])
+DIS_rat <- as.data.frame(mas5_control_data[4])
+DIS_mouse <- as.data.frame(mas5_control_data[5])
+
+```
+
+
+###Annotations files
+
+```{r annotation_files}
+temp <- tempfile()
+
+download.file("http://www.affymetrix.com/analysis/downloads/na36/ivt/Canine_2.na36.annot.csv.zip",temp)
+canine.annot <- read.csv(unz(temp, "Canine_2.na36.annot.csv"), header = TRUE, skip = 19) 
+
+download.file("http://www.affymetrix.com/analysis/downloads/na36/ivt/HT_Rat230.na36.annot.csv.zip",temp)
+rat.annot <- read.csv(unz(temp, "HT_Rat230.na36.annot.csv"), header = TRUE, skip = 21) 
+
+download.file("http://www.affymetrix.com/analysis/downloads/na36/ivt/Mouse430_2.na36.annot.csv.zip",temp)
+mouse.annot <- read.csv(unz(temp, "Mouse430_2.na36.annot.csv"), header = TRUE, skip = 22) 
+
+download.file("http://www.affymetrix.com/Auth/analysis/downloads/na36/ivt/HG-U133_Plus_2.na36.annot.csv.zip",temp)  ### MONKEY AND HUMAN ANNOTATIONS
+HG_U133 <- read.csv(unz(temp, "HG-U133_Plus_2.na36.annot.csv"), header = TRUE, skip = 25)
+
+unlink(temp)
+
+```
+
+
+
+From this point, the different databases are prepared to arrange the data in a way that will be easily managed at the app.
+
+####Human DIS Atlas
+
+```{r DIS_human}
+DIS_human$Probe.Set.ID <- row.names(DIS_human)
+DIS_Atlas_Human <- merge(HG_U133, DIS_human, by = "Probe.Set.ID")
+DIS_Atlas_Human <- DIS_Atlas_Human[, c(1,2,15,42:dim(DIS_Atlas_Human)[2])]
+colnames(DIS_Atlas_Human) <- gsub('(\\.prox.*)|(.*_)|(\\.\\d.*$)','',colnames(DIS_Atlas_Human))
+```
+
+
+####Monkey DIS Atlas
+
+```{r DIS_monkey}
+DIS_monkey$Probe.Set.ID <- row.names(DIS_monkey)
+DIS_Atlas_Monkey <- merge(HG_U133, DIS_monkey, by = "Probe.Set.ID")
+DIS_Atlas_Monkey <- DIS_Atlas_Monkey[, c(1,2,15,42:dim(DIS_Atlas_Monkey)[2])]
+colnames(DIS_Atlas_Monkey) <- gsub('(.*_)','',colnames(DIS_Atlas_Monkey))
+```
+
+
+####Dog DIS Atlas
+
+```{r DIS_dog}
+DIS_dog$Probe.Set.ID <- row.names(DIS_dog)
+DIS_Atlas_Dog <- merge(canine.annot, DIS_dog, by = "Probe.Set.ID")
+DIS_Atlas_Dog <- DIS_Atlas_Dog[, c(1,2,15,42:dim(DIS_Atlas_Dog)[2])]
+colnames(DIS_Atlas_Dog) <- gsub('(.*_)','',colnames(DIS_Atlas_Dog))
+
+```
+
+
+####Rat DIS Atlas
+
+```{r DIS_rat}
+DIS_rat$Probe.Set.ID <- row.names(DIS_rat)
+DIS_Atlas_Rat <- merge(rat.annot, DIS_rat, by = "Probe.Set.ID")
+DIS_Atlas_Rat <- DIS_Atlas_Rat[, c(1,2,15,42:dim(DIS_Atlas_Rat)[2])]
+colnames(DIS_Atlas_Rat) <- gsub('(.*_)','',colnames(DIS_Atlas_Rat))
+
+```
+
+
+####Mouse DIS Atlas
+
+```{r DIS_mouse}
+DIS_mouse$Probe.Set.ID <- row.names(DIS_mouse)
+DIS_Atlas_Mouse <- merge(mouse.annot, DIS_mouse, by = "Probe.Set.ID")
+DIS_Atlas_Mouse <- DIS_Atlas_Mouse[, c(1,2,15,42:dim(DIS_Atlas_Mouse)[2])]
+colnames(DIS_Atlas_Mouse) <- gsub('(.*_)','',colnames(DIS_Atlas_Mouse))
+
+```
+
+
+
+####GTEx
+
+Loading GTEx DB and annotation file
+
+```{r GTEx}
+temp <- tempfile()
+download.file("https://storage.googleapis.com/gtex_analysis_v8/rna_seq_data/GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_tpm.gct.gz",temp)
+
+GTEx_v8 <-  read.gct(temp)
+unlink(temp)
+row.names(GTEx_v8) <- gsub("(\\.).*", "", row.names(GTEx_v8))
+GTEx_v8 <- as.data.frame(GTEx_v8)
+
+samp <- fread('https://storage.googleapis.com/gtex_analysis_v8/annotations/GTEx_Analysis_v8_Annotations_SampleAttributesDS.txt')
+
+# Remove rows with all 0
+
+GTEx_v8 <-  GTEx_v8[(which(rowSums(GTEx_v8)!=0)),]
+
+```
+
+
+
+
+####HPA
+
+```{r HPA}
+temp <- tempfile()
+download.file("https://www.proteinatlas.org/download/transcript_rna_tissue.tsv.zip",temp)
+
+HPA_v19_3 <- read.table(unz(temp, "transcript_rna_tissue.tsv"), sep = "\t", header = TRUE)
+unlink(temp)
+
+
+```
+
+
+
+
+#### BarkBase DB loading in CPM.
+
+```{r BarkBase}
+BarkBase <- fread('https://data.broadinstitute.org/barkbase/RNA-seq/counts/TMM_normalized/CPM_cutoff_0.16/TMM_norm_gene_counts_cpm_0.16.txt')
+
+BarkBase <- filter(BarkBase, EnsemblGeneID!="")
+BarkBase <-  filter(BarkBase, GeneSymbol!="")
+
+#Removing columns for Embrions
+BarkBase <- BarkBase[, -c(1,4:7,35:49)]   
+```
+
+
+
+
+##NHPRTR
+
+Fom the NHPRTR we are only using data of Cynomolgus and Rhesus macaques, although if in the future the other species are needed the code to use them is on `NHPRTR_not evaluated` Chunk.
+
+```{r NHPRTR}
+temp <- tempfile()
+download.file("http://www.nhprtr.org/data/2014_NHP_tissuespecific/expression_matrix/Tissue_export.RefSeq.GENE.u.sFPKM.txt.gz",temp)
+
+NHPRTR <- read.table(gzfile(temp),sep="\t", skip = 1, comment.char = "", stringsAsFactors=FALSE)
+unlink(temp)
+
+```
+
+
+
+```{r NHPRTR_2}
+NHPRTR <- NHPRTR[-c(1:6),-c(2:13)]
+NHPRTR[1,] <- gsub("_.*", "", NHPRTR[1,])
+
+NHPRTR[1,] <- gsub("_.*", "", NHPRTR[1,])
+colnames(NHPRTR) <- NHPRTR[1,]
+NHPRTR <- NHPRTR[-1,]
+colnames(NHPRTR)[1] <- "Gene"
+i <- (2:169)
+NHPRTR[ , i] <- apply(NHPRTR[ , i], 2, function(x)gsub(".*/" , "", x))
+
+NHPRTR[ , i] <- apply(NHPRTR[ , i], 2, function(x) as.numeric(as.character(x)))
+```
+
+
+```{r NHPRTR_3}
+NHPRTR_JMI <- NHPRTR[,c(1,42:55)]                           #Japanese Macaque
+NHPRTR_RMI <- NHPRTR[,c(1,56:69)]                           #Rhesus Macaque Indian                           
+NHPRTR_CMM <- NHPRTR[,c(1,72:86)]                           #Cynomolgus Macaque Chinese
+NHPRTR_CMC <- NHPRTR[,c(1,87:102)]                          #Cynomolgus Macaque Mauritian
+
+NHPRTR_Macaque <- NHPRTR[,c(1,42:69, 72:102)]
+# colnames(NHPRTR_Macaque) <- NHPRTR_Macaque[1,]
+# # NHPRTR_Macaque <- NHPRTR_Macaque[-1,]
+# colnames(NHPRTR_Macaque)[1] <- "Gene"
+# colnames(NHPRTR_Macaque) <- gsub("_.*", "", colnames(NHPRTR_Macaque))
+
+```
+
+
+Not evaluated DBs, just in case they are needed in the future
+
+```{r NHPRTR_not evaluated, eval=FALSE}
+
+NHPRTR_Human <- NHPRTR[,1:12]                               #Human
+NHPRTR_CHP <- NHPRTR[,c(1,13:27)]                           #Chimpance
+NHPRTR_PTM <- NHPRTR[,c(1,28:41)]                           #Pig-tailed Macaque
+
+NHPRTR_BAB <- NHPRTR[,c(1,103:117)]                         #Olive Baboon
+NHPRTR_SMY <- NHPRTR[,c(1,118:131)]                         #Sooy Mangaley
+NHPRTR_MST <- NHPRTR[,c(1,132:144)]                         #Common Marmoset
+NHPRTR_SQM <- NHPRTR[,c(1,145:158)]                         #Squirrel Monkey
+NHPRTR_MLM <- NHPRTR[,c(1,160:168)]                         #Mouse Lemur
+
+```
+
+
+###BioGPS
+
+**Mouse1**
+
+```{r BioGPS_M1}
+temp <- tempfile()
+
+download.file("http://plugins.biogps.org/download/GNF1M_geneatlas_20120817.zip",temp)
+GNF1M <- read.delim(unz(temp, "GNF1M_plus_macrophage_small.bioGPS.txt"), header = TRUE) 
+
+download.file("http://plugins.biogps.org/download/gnf1m-anntable.zip",temp)
+GNF1M.annot <- read.delim(unz(temp, "gnf1m.annot2007.tsv"), header = TRUE) 
+
+unlink(temp)
+
+BioGPS_M <- merge(GNF1M.annot, GNF1M, by.x = "ProbesetID", by.y = "X" )
+BioGPS_M <- BioGPS_M[-c(2:6,10)]
+
+```
+
+```{r BioGPS_M12, eval=FALSE}
+
+#BioGPS <-BioGPS[which(BioGPS$Symbol!=""),]
+# BioGPS_M <- BioGPS_M[toupper(BioGPS_M$Symbol) %in% geneID$SYMBOL,]
+
+# BioGPS_M <- BioGPS_M[which(apply(BioGPS_M[,5:length(BioGPS_M)],1,mean)>25),]   ##Filter microarray with mean<25
+#BioGPS <- droplevels(BioGPS)
+```
+
+
+**Mouse2**
+
+```{r BioGPS_M2}
+temp <- tempfile()
+
+download.file("http://plugins.biogps.org/download/geneatlas_MOE430_20090327.raw.csv.zip",temp)
+MOE403 <- read.csv(unz(temp, "geneatlas_MOE430_20090327.raw.csv"), header = TRUE) 
+
+download.file("http://www.affymetrix.com/Auth/analysis/downloads/na36/ivt/Mouse430_2.na36.annot.csv.zip",temp)
+MOE403.annot <- read.csv(unz(temp, "Mouse430_2.na36.annot.csv"), header = TRUE, skip = 22)
+
+unlink(temp)
+
+BioGPS_M2 <- merge(MOE403.annot, MOE403, by.x = "Probe.Set.ID", by.y = "X" )
+BioGPS_M2 <- BioGPS_M2[-c(2:14,16:43)]
+BioGPS_M2 <- BioGPS_M2[BioGPS_M2$Gene.Symbol!="---",]
+
+```
+
+
+
+
+
+**Human**
+
+```{r BioGPS_H}
+temp <- tempfile()
+
+download.file("http://plugins.biogps.org/download/gnf1h-gcrma-unaveraged.zip",temp)
+GNF1H <- read.csv(unz(temp, "U133AGNF1B.gcrma.csv"), header = TRUE) 
+
+download.file("http://plugins.biogps.org/download/gnf1h-anntable.zip",temp)
+GNF1H.annot <- read.delim(unz(temp, "gnf1h.annot2007.tsv"), header = TRUE) 
+
+BioGPS_H <- merge(HG_U133, GNF1H, by.x = "Probe.Set.ID", by.y = "X", all=TRUE )
+BioGPS_H$Gene.Symbol<-as.character(BioGPS_H$Gene.Symbol)
+
+GNF1H.annot$Symbol<- as.character(GNF1H.annot$Symbol)
+BioGPS_H$Gene.Symbol[match(GNF1H.annot$ProbesetID, BioGPS_H$Probe.Set.ID)] <- GNF1H.annot$Symbol
+BioGPS_H <- BioGPS_H %>% filter(!Gene.Symbol %in% c("","obsoleted by Celera"))
+
+BioGPS_H <- BioGPS_H[-c(2:14,16:41)]
+
+BioGPS_H <- BioGPS_H[toupper(BioGPS_H$Gene.Symbol) %in% geneID$SYMBOL,]
+
+# BioGPS_H[rowSums(BioGPS_H[3:length(BioGPS_H)])>0,]
+
+```
+
+
+
+
+
+### RATLAS
+
+```{r Ratlas}
+Ratlas <- read.delim("/dlab/NGS/bioinformatics/PCS/DIPGENOMICS/TEP_Shiny_data/version_0.9/data/ratlas_fpkm.out")
+Ratlas <- Ratlas[Ratlas$fpkm>0,]
+
+# ratlas_tissue <- unique(ratlas$organ)
+
+```
+
+
+###MINIPIG ATLAS
+
+```{r Minipig_Atlas}
+
+Minipig_Atlas <- read.delim("/dlab/NGS/bioinformatics/PCS/DIPGENOMICS/TEP_Shiny_data/version_0.9/data/minipigAtlas_tpm.out")
+Minipig_Atlas <- Minipig_Atlas[Minipig_Atlas$tpm>0,]
+
+```
+
+
+###E-MTAB-6081 MOUSE
+
+```{r E_MTAB_6081_MOUSE}
+
+Mouse_MTAB6081 <- read.delim("/dlab/NGS/bioinformatics/PCS/DIPGENOMICS/TEP_Shiny_data/version_0.9/data/E-MTAB-6081_mouse_tpm.txt")
+Mouse_MTAB6081 <- Mouse_MTAB6081[rowSums(Mouse_MTAB6081)>0,]
+
+```
+
+
+
+
+###E-MTAB-6081 RAT
+
+```{r E_MTAB_6081_RAT}
+
+Rat_MTAB6081 <- read.delim("/dlab/NGS/bioinformatics/PCS/DIPGENOMICS/TEP_Shiny_data/version_0.9/data/E-MTAB-6081_rat_tpm.txt")
+Rat_MTAB6081 <- Rat_MTAB6081[-40]
+Rat_MTAB6081 <- Rat_MTAB6081[rowSums(Rat_MTAB6081)>0,]
+
+```
+
+
+###Data cleaning
+
+```{r data_cleaning}
+
+rm(i, temp, GNF1M, GNF1M.annot, NHPRTR, GNF1H, GNF1H.annot, HG_U133, MOE403, MOE403.annot, canine.annot, DIS_human, DIS_mouse, DIS_monkey, DIS_dog, DIS_rat, mouse.annot, rat.annot, mas5_control_data, geneID_mouse2, geneID_rat2, mart1, mart2, mart3, mart4, Human_rat, Human_mouse, Human_dog, geneID_dog2)
+
+```
+
+
+
+```{r save_to_file}
+
+save.image("/dlab/NGS/bioinformatics/PCS/DIPGENOMICS/TEP_Shiny_data/version_0.9/data/TEP_Shiny.RData") #File without compression
+
+# save.image("/dlab/NGS/bioinformatics/PCS/DIPGENOMICS/TEP_Shiny_data/version_0.9/data/TEP_Shiny_compressed.RData", compress = "bzip2")
+
+```
+
+
+
+
+Evaluation of genes in 2 or more probes
+
+
+```{r, eval=FALSE}
+
+n_occur <- data.frame(table(BioGPS$Symbol))
+
+# list of ids and the number of times they occurred
+nrow(n_occur[n_occur$Freq > 1,])
+
+# Rows with more than 1 row
+
+BioGPS_duplicated <- BioGPS[BioGPS$Symbol %in% n_occur$Var1[n_occur$Freq > 1],]
+
+#filter rows with Gene name
+
+#BioGPS_duplicated_filtered <- BioGPS_duplicated[toupper(BioGPS_duplicated$Symbol) %in% geneID$SYMBOL, ]
+
+#BioGPS_norm <- apply(BioGPS[5:157], 1, scale)
+
+
+test <- BioGPS_duplicated_filtered[BioGPS_duplicated$Symbol=="Atf7", ]
+test_scale <- data.frame(apply(test[4:156],1,scale))
+test_scale$row <- as.integer(rownames(test_scale))
+
+test_scale2 = reshape2::melt(test_scale, id.vars = c("row"), measure.vars = c("X6691", "X18315", "X18316", "X18834"))
+
+ggplot(test_scale2)+
+  geom_point(aes(x=row, y=value, color = variable)) +
+  geom_line(aes(x=row, y=value, color = variable))
+
+
+#If we don't scale
+
+test2b <- as.data.frame(t(test[,4:156]))
+rownames(test2b) <- NULL
+test2b$row <- as.integer(rownames(test2b))
+
+test_3 = res3hape2::melt(test2b, id.vars = c("row"), measure.vars = c("6691", "18315", "18316", "18834"))
+ggplot(test_3)+
+  geom_point(aes(x=row, y=value, color = variable)) +
+  geom_line(aes(x=row, y=value, color = variable))
+
+```
+
+```{r, eval=FALSE}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+BiocManager::install("genefilter")
+```
+
+
+

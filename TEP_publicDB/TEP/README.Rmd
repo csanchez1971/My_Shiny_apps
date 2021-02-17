@@ -1,0 +1,42 @@
+---
+title: "README.md"
+output: md_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("/home/sanchcat/Carlos/TEP")
+```
+
+Target Expression Profiling app
+-------------------------------
+
+This app analyzes and displays for a variety of internal and external databases, the expression profile of a selected gene and calculates the enriched tissues on each dataset. Results can be downloaded into a word, pdf or html document.
+
+File structure
+--------------
+
+The app has been divided into 6 main files:
+
+-   `Atlas Dictionary` (`.\data\Atlas_Dictionary_final.csv`): This file is used as a conversion table, translating the different tissue names from the different sources into a unique value, helping harmonise the result. The final name of the tissues are from the DIS Atlas naming convention. Two extra columns here will give us the Tissue System that belongs to every tissue and its upper level, used to group tissues belonging to a same area
+
+-   `All_DB.Rmd`: This script will generate the `TEP_Shiny.RData` file, our local database including:
+
+    -   Raw data of each database. Some DB will be downloaded from internet and other (internal DBs) will be locally stored at `.\data` folder
+    -   **Atlas\_dictionary\_final** table
+    -   Gene name translation tables (geneID, geneID\_dog, …). This tables will translate the user’s gene input (Human hugo name) into Ensembl name, mouse-rat-dog gene names, etc that will be used to subset the different datasets.
+    -   Annotation files
+
+-   `TEP_Shiny.RData`: workspace created after running `All_DB.Rmd` script. Here we will have in a single file all the DBs and tables needed for the app.
+
+-   `ui.R`: User interface part of the app, displaying selection and filtering methods, plots and tabs distribution
+
+-   `server.R`: logic part of the app, including DB management and transformation, plots and DB summaries
+
+-   `global.R`: file including most of the functions used at the app and downloadable report
+
+-   `report2.Rmd`: This script will generate the downloadable report, summarizing the data displayed on the app.
+
+-   `template.doc`: word template including the styles to be used on the downloadable report. 
+
+-   `new_DB_steps.R`: Procedure to follow to include a new DB at the app.

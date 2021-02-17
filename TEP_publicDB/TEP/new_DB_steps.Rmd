@@ -1,0 +1,54 @@
+---
+title: "New_DB_steps"
+output: md_document
+---
+
+**STEPS ADDING NEW DATABASE:**
+
+  a. Modify `Atlas_dictionary_final.csv` file, save and upload it
+      a. Add a column with the new DB and the different tissue names matching the Master column
+      b. Upload modified file to "/dlab/NGS/bioinformatics/PCS/DIPGENOMICS/TEP_Shiny_data/version_0.9/data/"
+
+  b. Execute script `All_DB.Rmd`to upload new Atlas dictionary's version
+  c. Include new DB in `All_DB.Rmd` (local path or weblink)
+  d. Save the environment including new DB and Atlas Dictionary version as `TEP_Shiny.RData`
+
+
+`ui.R file` 
+
+  a. If new specie, add to selecInput(“species”)
+  b. Add database to selectInput(“database”)
+  c. Add conditionalPanel for the plot (If microarray data, include selecInput) within its species
+  d. Add database to tabPanel (“Data”) and its species - fluidRow
+  e. Add explanation of DB in tabpanel (“Methods”)
+  
+  
+`server.R file` 
+
+  a. Manipulate dataset to obtain 2 columns (UoM, tissue) for selected gene
+  b. Create E_genexxxx
+  c. Add to DB_Summary
+      a. Create 2 rows on if else
+      b. Add DB_sum to sum_table
+      
+  d. Add db to summary_enriched function
+  f. Add specie to speciesTissue if missing
+  g. Add db to heatmap_sum
+  h. Create output$graphDB (eventReactive + renderPlot)
+  i. Create renderDataTable output$geneExp_DB
+           
+
+           
+`global.R file`            
+
+  a. Add DB to DBs and Specie vectors for filtering and factor to display in desired order
+  b. Create entry in DB_Used
+
+                                
+`Report2.Rmd`
+  
+  a. Add DB description
+  b. Add Figure plot
+  c. Add row in DB_legend depending on number of tissue systems
+  d. Add heatmap rows (NO)
+  e. Add db summary rows (NO)
