@@ -1,0 +1,11 @@
+name: shiny_sample_entropy
+title:
+username:
+account: csanchez
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 5707396
+bundleId: 5604949
+url: https://csanchez.shinyapps.io/shiny_sample_entropy/
+when: 1645522979.8025
+lastSyncTime: 1645522979.8025

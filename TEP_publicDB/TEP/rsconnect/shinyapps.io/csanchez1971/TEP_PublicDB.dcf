@@ -1,0 +1,13 @@
+name: TEP_PublicDB
+title: TEP_PublicDB
+username:
+account: csanchez1971
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3652238
+bundleId: 4236155
+url: https://csanchez1971.shinyapps.io/TEP_PublicDB/
+when: 1613577434.56388
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: .httr-oauth|All_DB.Rmd|app_with_SC.R|new_DB_steps.Rmd|README.Rmd|data

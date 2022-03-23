@@ -41,10 +41,16 @@ shinyUI(
                                 #               value = FALSE),
                                 
                                 checkboxGroupInput(inputId = "selectVariables",
-                                                   label = "Select variables to calculate Sample Entropy",
+                                                   label = "Select variables to display missing values",
                                                    choices = c("HR", "RR", "SpO2", "Pulse"),
                                                    inline = TRUE,
                                                    selected = "HR"),
+                                
+                                selectInput(inputId = "Variable_to_SE", 
+                                            label = "Select variable to calculate Sample Entropy",
+                                            choices = c("HR", "RR", "SpO2", "Pulse"),
+                                            selected = "HR",
+                                            multiple = FALSE),
                                 
                                 # actionButton(inputId = "plot_button", label = "Plot graph", style = "background-color:#35a7e8; color: white !important"),
                                 actionButton(inputId = "plot_button", label = "Display Data")
@@ -104,29 +110,29 @@ shinyUI(
                             )
                             
                             
-                   # ),
-                   # 
+                   )    #start tab
+
                    # tabPanel("File merging",
-                   #          
+                   # 
                    #          fluidRow(
                    #            column(5,
                    #                   fileInput(
-                   #                     inputId = "files_to_merge", 
-                   #                     label = "Choose Sample Entropy Files to merge", 
+                   #                     inputId = "files_to_merge",
+                   #                     label = "Choose Sample Entropy Files to merge",
                    #                     multiple = TRUE,
                    #                     accept = c("text/csv",
                    #                                "text/comma-separated-values,text/plain",
                    #                                ".csv")
                    #                   )
-                   #                   
+                   # 
                    #            ),
                    #            column(3, uiOutput("download_merged"))
                    #          ),
-                   #          
+                   # 
                    #          br(),
-                   #          tableOutput("contents")
-                            
-                   )
+                   #          tableOutput("contents")   #end tab
+                   #          
+                   # )
                    
 )
 )

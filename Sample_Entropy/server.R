@@ -33,7 +33,7 @@ shinyServer(function(input, output) {
   
   
   data0 <- eventReactive(input$plot_button,{
-    # browser()
+         # browser()
     # if (input$t25Minutes){longest_gap_tolerated=Inf} else {longest_gap_tolerated=1500}
     if (is.null(input$file))
       return()
@@ -44,7 +44,7 @@ shinyServer(function(input, output) {
     data0 <- FormattingOfMeasurements(data0)
     data <- SamplingFrequencyStats(data0,longest_gap_tolerated=1500)
     
-    if(data[1,2] == "t > 25 minuts"){
+    if(identical(data[1,2], "t > 25 minutes")){
       showModal(dataModal())
       data <- data0
       
@@ -53,33 +53,33 @@ shinyServer(function(input, output) {
       data$group <- ifelse(apply(as.data.frame(data[, colnames(data) %in% input$selectVariables]), 1, anyNA), "Missing Value", "Valid Range")
       
     }
-    
+   
     return(data)
   })
   
   observeEvent(ncol(data0())== 6,{
     vals$data <- data0()
   }) 
-  
-  observeEvent(input$ok, {
-    # browser()
-    data <- data0()
-    data <- SamplingFrequencyStats(vals$data,longest_gap_tolerated=Inf)
-    data <- data %>% select(-time_diff)
-    data$group <- ifelse(apply(as.data.frame(data[, colnames(data) %in% input$selectVariables]), 1, anyNA), "Missing Value", "Valid Range")
-    vals$data <- data
-    removeModal()
-  })
-  
-  
-  
-  
+    
+    observeEvent(input$ok, {    # Case when we continue with the analysis even though a t>25 minutes gap found
+      # browser()
+      data <- data0()
+      data <- SamplingFrequencyStats(vals$data,longest_gap_tolerated=Inf)
+      data <- data %>% select(-time_diff)
+      data$group <- ifelse(apply(as.data.frame(data[, colnames(data) %in% input$selectVariables]), 1, anyNA), "Missing Value", "Valid Range")
+      vals$data <- data
+      removeModal()
+      })
+
+    
   
   
+
   
+
   
   # observeEvent(data(), {
-  #   if(data()[1,2] == "t > 25 minuts"){
+  #   if(data()[1,2] == "t > 25 minutes"){
   #     showModal(modalDialog(
   #       title = "25 minutes gap found",
   #       "Gap greater than 25 minutes. Do you want to continue?",
@@ -135,10 +135,8 @@ shinyServer(function(input, output) {
       geom_point() +
       labs(x = "Date and Time", y = "Data Quality", colour = "Data Quality") +
       coord_cartesian(xlim = ranges$x, ylim = NULL, expand = TRUE) 
-    # + 
-    #   scale_fill_manual(values = myColors)
+
     
-    # scale_fill_manual(values=c("#F8766D", "#00BA38"), drop = F)
   }, height = 200)
   
   
@@ -155,11 +153,11 @@ shinyServer(function(input, output) {
   
   
   data_range <- reactive({
-    # browser()
+      # browser()
     if (is.null(input$file))
       return()
     req(nrow(vals$data)>0)
-    data_range_real <- interval_no_interruptions(subset_data(), VariableName = "HR")
+    data_range_real <- interval_no_interruptions(subset_data(), input$selectVariables)
     
     data_range <- data.frame(Selected_Initial_Time = as.character(first(subset_data()$Date.Time)),
                              Selected_Final_Time = as.character(last(subset_data()$Date.Time)),
@@ -174,7 +172,7 @@ shinyServer(function(input, output) {
   output$plot_dblclickinfo <- renderDataTable({
     if (is.null(input$file))
       return()
-    req(filename_new() == filename_old())
+    req(filename_new() == filename_old())    # Requires that we have click on the "Display Data" button, to avoid loading a new file but not displayed
     datatable(data_range(),
               options = list(
                 dom = 't',
@@ -191,8 +189,8 @@ shinyServer(function(input, output) {
                   color = 'white',
                   backgroundColor = styleInterval(70, c('red', 'green'))) %>%
       formatStyle(columns = c(1:6), 'text-align' = 'center')    #Values centered
-    
-    
+      
+
   })
   
   
@@ -225,7 +223,7 @@ shinyServer(function(input, output) {
     
     subset_data <- brushedPoints(vals$data, input$plot_brush)
     
-    return(subset_data)
+     return(subset_data)
   })
   
   
@@ -236,8 +234,8 @@ shinyServer(function(input, output) {
     
     req(nrow(subset_data()) > 0)
     withProgress(message = 'Calculating sample entropies...', detail = 'This may take about 10 to 20 seconds.', value = 0.7, {
-      # browser()
-      entropy_results <- calculateEntropies(subset_data(), VariableName = "HR")
+       # browser()
+      entropy_results <- calculateEntropies(subset_data(), VariableName = input$Variable_to_SE, selectVariables = input$selectVariables)
       entropy_results$Effective_Initial_Time_Point <- as.character(entropy_results$Effective_Initial_Time_Point)
       entropy_results$Effective_Final_Time_Point <- as.character(entropy_results$Effective_Final_Time_Point)
       entropy_results$Total_Duration_of_Measurements <- as.duration(last(vals$data$Date.Time) - first(vals$data$Date.Time))
@@ -249,17 +247,17 @@ shinyServer(function(input, output) {
       colnames(entropy_results)[4:7] <- c("Entropy_Of_Top_Part_Of_Selected_Window",	"Entropy_Of_Middle_Part_Of_Selected_Window",
                                           "Entropy_Of_Bottom_Part_Of_Selected_Window",	"Entropy_Of_Whole_Selected_Window")
       return(entropy_results)
-      
+    
     })  })
   
   output$SE_calculations <- renderDataTable({
     req(input$SE_button)
     req(nrow(subset_data()) > 0)
-    
+
     sub_data <- subset_data()
     req(nrow(SE_results()) > 0)
     # browser()
-    
+
     if(data_range()$'Effective Duration (min)'<70){
       error_message <- data.frame("Select a time window with effective duration of at least 70 minutes")
       colnames(error_message) <-  "Error in time window"
@@ -272,7 +270,7 @@ shinyServer(function(input, output) {
           "$(this.api().table().header()).css({'background-color': '#35a7e8', 'color': 'black'});",
           "}"),
         autoWidth = FALSE), rownames = FALSE)
-      
+        
       
       
       # } else if(data_range()$'Effective Initial Time' != SE_results()$Effective_Initial_Time_Point |
@@ -289,49 +287,48 @@ shinyServer(function(input, output) {
       #       "}"),
       #     autoWidth = FALSE), rownames = FALSE)
       
+          
       
-      
-    } else {
-      
-      
-      SE_results2 <- SE_results()[4:11]
-      SE_results2$Effective_Duration <- as.character(round(SE_results2$Effective_Duration),3)
-      SE_results2$Total_Duration_of_Measurements <- as.character(round(SE_results2$Total_Duration_of_Measurements),3)
-      colnames(SE_results2) <- c("Top Part", "Middle Part", "Bottom Part", "Whole", "Effective Initial Time", "Effective Final Time", "Effective Duration", 
-                                 "Total Duration of Measurement")
-      datatable(SE_results2,   #Avoid printing 3 first columns (only in download doc) - "File_Name", "Patient_ID", "Date_and_Time"
-                options = list(
-                  dom = 't',
-                  ordering=F,    #Remove sorting values
-                  columnDefs = list(list(className = 'dt-center', targets ="_all")),  #Center fields in header
-                  initComplete = JS(
-                    "function(settings, json) {",
-                    "$(this.api().table().header()).css({'background-color': '#35a7e8', 'color': 'black'});",
-                    "}"),
-                  autoWidth = FALSE), rownames = FALSE) %>%  
-        formatStyle(columns = c(1:8), 'text-align' = 'center') %>%    #Values centered
+      } else {
+         
+
+          SE_results2 <- SE_results()[4:11]
+          SE_results2$Effective_Duration <- as.character(round(SE_results2$Effective_Duration),3)
+          SE_results2$Total_Duration_of_Measurements <- as.character(round(SE_results2$Total_Duration_of_Measurements),3)
+          colnames(SE_results2) <- c("Top Part", "Middle Part", "Bottom Part", "Whole", "Effective Initial Time", "Effective Final Time", "Effective Duration", 
+                                     "Total Duration of Measurement")
+          datatable(SE_results2,   #Avoid printing 3 first columns (only in download doc) - "File_Name", "Patient_ID", "Date_and_Time"
+                    options = list(
+                      dom = 't',
+                      ordering=F,    #Remove sorting values
+                      columnDefs = list(list(className = 'dt-center', targets ="_all")),  #Center fields in header
+                      initComplete = JS(
+                        "function(settings, json) {",
+                        "$(this.api().table().header()).css({'background-color': '#35a7e8', 'color': 'black'});",
+                        "}"),
+                      autoWidth = FALSE), rownames = FALSE) %>%  
+            formatStyle(columns = c(1:8), 'text-align' = 'center') %>%    #Values centered
+            
+            formatRound(c(1:4), 3) 
         
-        formatRound(c(1:4), 3) 
-      
-      
-    }
+     
+      }
     # validate(
     #   need(data_range()$'Effective Duration (min)'>70)
     # )
-    
+
     # if (is.null(subset_data()))
     #   return()
     # browser()
     # validate(need(nrow(subset_data()) != 0, 'Select range'))
+
     
-    
-    
+
     
   })
   
   
   upload <- eventReactive(input$files_to_merge,{
-    
     File_to_merge <- input$files_to_merge
     
     req(File_to_merge)
@@ -343,18 +340,22 @@ shinyServer(function(input, output) {
       )
     }
     upload <- bind_rows(upload)
+    upload <- cbind(File_to_merge[, 1], upload)   # Adaptation to pass the new file name into the column instead generic (avoid case 1 dataset calculates 2 SE)
+    upload <- upload[,-2]
+    colnames(upload)[1] <- "File_Name"
     return(upload)
     
   })
   
   output$contents <- renderTable({
+    
     upload()
   })
   
   
   output$download1 <- downloadHandler(
     filename = function() {
-      gsub(".csv", "_SampleEntropy.csv",input$file)
+      gsub(".csv", paste0("_SE_", input$Variable_to_SE, ".csv"), input$file)
     },
     content = function(file) {
       write.csv(SE_results(), file, row.names = FALSE)

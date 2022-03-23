@@ -1,0 +1,12 @@
+name: Shiny_Sample_Entropy
+title: GraphicalSampleEntropyCalc
+username:
+account: harvey-study
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3519207
+bundleId: 4141202
+url: https://harvey-study.shinyapps.io/Shiny_Sample_Entropy/
+when: 1611595320.03584
+asMultiple: FALSE
+asStatic: FALSE

@@ -11,7 +11,7 @@
 # @param input_ZScore_cutoff ZScore cutoff selected to calculate enriched tissues
 
 
-setwd("~/My_Shiny_apps/TEP_PublicDB/")
+# setwd("~/My_Shiny_apps/TEP_PublicDB/TEP/")
 load("TEP_Shiny_reduced.RData")
 # load("/dlab/NGS/bioinformatics/PCS/DIPGENOMICS/TEP_Shiny_data/version_0.9/TEP_Shiny.RData")
 

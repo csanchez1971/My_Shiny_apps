@@ -202,7 +202,7 @@ SamplingFrequencyStats <- function(dataFrame,longest_gap_tolerated=1500){
   
   if(max(dataFrame$time_diff, na.rm = TRUE) > longest_gap_tolerated) {
     
-    dataFrame[1 ,2:ncol(dataFrame)] <- print("t > 25 minuts")   #### CHANGED 04/09/2020!!!!
+    dataFrame[1 ,2:ncol(dataFrame)] <- print("t > 25 minutes")   #### CHANGED 04/09/2020!!!!
     dataFrame <- dataFrame[1,]
     
     return(dataFrame)
@@ -280,13 +280,13 @@ tableDisplayFragmentation <- function(dataFrame, column_name){
                                                                 ifelse (column_value == "Missing Column", 0,
                                                                 round(as.duration(unlist(lapply(diff_date, function(x)  ifelse(max(x$time_diff[!is.na(x[, column_name])], na.rm = T)==-Inf, 0, max(x$time_diff[!is.na(x[, column_name])], na.rm = T))), use.names=FALSE)),2))))
   
-  # Comments     <- unlist(lapply(dataFrame, function(x) ifelse (x[1,2] != "Elapsed time between measures greater than 10 minuts" |
+  # Comments     <- unlist(lapply(dataFrame, function(x) ifelse (x[1,2] != "Elapsed time between measures greater than 10 minutes" |
   #                                                                is.na(x[1,2]), 
   #                                                             "", "t > 10 min")), use.names=FALSE)
   
   Comments     <- unlist(lapply(dataFrame, function(x) {
     
-    ifelse (x[1,2] == "t > 25 minuts", "Elapsed time between measures greater than 25 minuts", 
+    ifelse (x[1,2] == "t > 25 minutes", "Elapsed time between measures greater than 25 minutes", 
             # ifelse (x[1, column_name] != "Missing column", "", "Missing column") )}) , use.names=FALSE)
             ifelse (x[1, column_name] != "Missing Column", "", paste0("Parameter ", column_name, " was not recorded during this measurement", collapse=""))
             
@@ -300,7 +300,7 @@ tableDisplayFragmentation <- function(dataFrame, column_name){
                        Duration_Longest_Gap, Duration_Longest_Uninterrupted_Interval, Duration_of_Whole_Measurement, Comments)
   rownames(output) <- NULL
   # 
-  # if (dataFrame[1][2] != "Elapsed time between measures greater than 10 minuts"){
+  # if (dataFrame[1][2] != "Elapsed time between measures greater than 10 minutes"){
   #   dataFrame$Comments <- "t > 10 min"
   # }
   # 
@@ -413,7 +413,7 @@ empty_row_with_message <- function(x){
       dataFrame$df_NAME <- Name
       dataFrame$Pat_ID <- Patient_ID
       dataFrame$Date_Time <- Date_time      
-      dataFrame[1,9] <- as.character("Elapsed time between measures greater than 25 minuts")
+      dataFrame[1,9] <- as.character("Elapsed time between measures greater than 25 minutes")
 
     }
     
@@ -505,7 +505,7 @@ empty_row_with_message <- function(x){
       dataFrame$df_NAME <- Name
       dataFrame$Pat_ID <- Patient_ID
       dataFrame$Date_Time <- Date_time
-      dataFrame[1,9] <- as.character("Elapsed time between measures greater than 25 minuts")
+      dataFrame[1,9] <- as.character("Elapsed time between measures greater than 25 minutes")
       
     }
     
@@ -597,7 +597,7 @@ empty_row_with_message <- function(x){
       dataFrame$df_NAME <- Name
       dataFrame$Pat_ID <- Patient_ID
       dataFrame$Date_Time <- Date_time      
-      dataFrame[1,9] <- as.character("Elapsed time between measures greater than 25 minuts")
+      dataFrame[1,9] <- as.character("Elapsed time between measures greater than 25 minutes")
       
     }
     
@@ -687,7 +687,7 @@ empty_row_with_message <- function(x){
       dataFrame$df_NAME <- Name
       dataFrame$Pat_ID <- Patient_ID
       dataFrame$Date_Time <- Date_time      
-      dataFrame[1,9] <- as.character("Elapsed time between measures greater than 25 minuts")
+      dataFrame[1,9] <- as.character("Elapsed time between measures greater than 25 minutes")
       
     }
     
@@ -779,7 +779,7 @@ empty_row_with_message <- function(x){
       dataFrame$df_NAME <- Name
       dataFrame$Pat_ID <- Patient_ID
       dataFrame$Date_Time <- Date_time      
-      dataFrame[1,9] <- as.character("Elapsed time between measures greater than 25 minuts")
+      dataFrame[1,9] <- as.character("Elapsed time between measures greater than 25 minutes")
       
     }
     
@@ -872,7 +872,7 @@ empty_row_with_message <- function(x){
       dataFrame$df_NAME <- Name
       dataFrame$Pat_ID <- Patient_ID
       dataFrame$Date_Time <- Date_time      
-      dataFrame[1,9] <- as.character("Elapsed time between measures greater than 25 minuts")
+      dataFrame[1,9] <- as.character("Elapsed time between measures greater than 25 minutes")
       
     }
     
@@ -892,11 +892,11 @@ empty_row_with_message <- function(x){
   ##################################################################################################
   
   
-  interval_no_interruptions <- function(DataFrameOfMeasurements, VariableName = "HR") {
+  interval_no_interruptions <- function(DataFrameOfMeasurements, selectVariables="HR") { #Consider range with multiple variable selected on Shiny app, not only the variable of interest
     
     DataFrameOfMeasurements <- DataFrameOfMeasurements %>% 
-      mutate(Var1_interval_grp = cumsum(c(1, abs(diff(is.na(DataFrameOfMeasurements[, VariableName])))))) %>%
-      filter(!is.na(DataFrameOfMeasurements[, VariableName])) %>% 
+      mutate(Var1_interval_grp = cumsum(c(1, abs(diff(DataFrameOfMeasurements$group <- complete.cases(DataFrameOfMeasurements[,selectVariables])))))) %>%
+      filter(complete.cases(DataFrameOfMeasurements[,selectVariables])) %>% 
       group_by(Var1_interval_grp) %>% 
       mutate(N = n()) %>%
       ungroup() %>% 
@@ -907,62 +907,20 @@ empty_row_with_message <- function(x){
     return(DataFrameOfMeasurements)
   }
   
-  
-  
-  ##################################################################################################
-  #Function to create Table displaying Sample Entropy for 90 Min measurements
-  ##################################################################################################
-  
-  
-  # This function takes the length "n" of the whole time series (recorded over 90 minutes) 
-  # and returns start and end index (within the array containing the time series) of the 
-  # three parts of the time series for which we want to calculate the sample entropy
-  
-  # PartinioningTimeSeries <- function(n){
-  #   #Finding T
-  # 
-  #   if (n %% 2 == 0){
-  #     T  <- n/2
-  #   } else{
-  #     T <- (n+1)/2
-  #   }
-  # 
-  #   #Finding Q
-  #   if (T %% 2 == 0){
-  #     Q <- T/2
-  #   } else{
-  #     Q <- (T-1)/2
-  #   }
-  # 
-  # 
-  #   #These are the start and end indexes for each of the windows
-  # 
-  #   W1 <- c(1,T)            #For the first window
-  #   W2 <- c((Q+1),(Q+T))    #For the second window
-  #   W3 <- c((n-T+1),n)      #For the third window
-  # 
-  #   StartingAndEndingIndexes <- c(W1,W2,W3)
-  # 
-  #   return(StartingAndEndingIndexes)
-  # }
-  
-  
-  
-  
-  
+
   
   ##################################################################################################
   #Function to create Table displaying Sample Entropy for 90 Min measurements
   ##################################################################################################
   
   
-  calculateEntropies <- function(DataFrameOfMeasurements, VariableName = "HR", EmbeddingDim=3, NeighborhoodRadius = 0.2){
+  calculateEntropies <- function(DataFrameOfMeasurements, selectVariables="HR", VariableName = "HR", EmbeddingDim=3, NeighborhoodRadius = 0.2,...){
     #This function assumes the data frame has been already formatted and cleaned of missing values.
     #In particular, the column of the variable of interest (specified through the input parameter "VariableName") should not have any interruptions such as missing values (NAs)
 
     Total_Duration_of_Measurements <- last(DataFrameOfMeasurements$Date.Time) - first(DataFrameOfMeasurements$Date.Time)
 
-    DataFrameOfMeasurements <- interval_no_interruptions(DataFrameOfMeasurements, VariableName = "HR")
+    DataFrameOfMeasurements <- interval_no_interruptions(DataFrameOfMeasurements, selectVariables)
 
     if (is.na(DataFrameOfMeasurements[,VariableName]) | DataFrameOfMeasurements[,VariableName] == -Inf){
 

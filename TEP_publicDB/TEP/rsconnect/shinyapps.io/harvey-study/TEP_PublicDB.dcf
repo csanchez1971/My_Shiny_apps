@@ -1,0 +1,13 @@
+name: TEP_PublicDB
+title: TEP_PublicDB
+username:
+account: harvey-study
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3652362
+bundleId: 4294541
+url: https://harvey-study.shinyapps.io/TEP_PublicDB/
+when: 1614765194.12059
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: .httr-oauth|All_DB.Rmd|app_with_SC.R|new_DB_steps.Rmd|README.Rmd|report2.Rmd|template.docx
