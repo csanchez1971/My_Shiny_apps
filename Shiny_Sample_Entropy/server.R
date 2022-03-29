@@ -200,7 +200,7 @@ shinyServer(function(input, output, session) {
                               "Effective Initial Time",
                               "Effective Final Time", 
                               "Effective Duration (min)", 
-                              "Percentage NA selection")
+                              "% of NAs in selection")
     return(data_range) # if not included, system will convert into a vector and give error
   })
   
