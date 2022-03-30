@@ -34,81 +34,83 @@ shinyServer(function(input, output, session) {
   
   
   data0 <- eventReactive(input$plot_button,{
-    # if (input$t25Minutes){longest_gap_tolerated=Inf} else {longest_gap_tolerated=1500}
-    if (is.null(input$file))
-      return()
-    
-    if (input$Variable_to_SE %in% input$selectVariables){
-      inFile <- input$file
-      data0 <- read.csv(inFile$datapath)
-      data0 <- AdjustColumnNames(data0)
-      data0 <- FormattingOfMeasurements(data0)
-      
-      if(input$interpolate){
-
-        data0[,input$Variable_to_SE] <- na_interpolation(data0[,input$Variable_to_SE], option = "spline")
-
-      } 
-      
-      if(input$couples_09_105){
-        
-        data <- SamplingFrequencyStats(data0,longest_gap_tolerated=1500, lower_limit = 0.9, upper_limit = 1.06)
-        
-      } else {
-
-        data <- SamplingFrequencyStats(data0,longest_gap_tolerated=1500)
-        
-      }
- 
-
-      if(identical(data[1,2], "t > 25 minutes")){
-        showModal(dataModal())
-        
-        
-        data <- data0
-        
-      } else{
-        data <- data %>% select(-time_diff)
-        data$group <- ifelse(apply(as.data.frame(data[, colnames(data) %in% input$selectVariables]), 1, anyNA), "Missing Value", "Valid Range")
-      }
-      
-      return(data)
-      
-    } else {
-      
-      showModal(modalDialog(
-        title = "Variable of study not selected",
-        paste0("Selected variables to display missing values must include ", input$Variable_to_SE)
-      ))
-      }
+          # browser()
+          # if (input$t25Minutes){longest_gap_tolerated=Inf} else {longest_gap_tolerated=1500}
+          if (is.null(input$file))
+                  return()
+          
+          if (input$Variable_to_SE %in% input$selectVariables){
+                  inFile <- input$file
+                  data0 <- read.csv(inFile$datapath)
+                  data0 <- AdjustColumnNames(data0)
+                  data0 <- FormattingOfMeasurements(data0)
+                  data0$na <- ifelse(is.na(data0[,input$Variable_to_SE]), 'y', 'n')
+                  
+                  if(input$interpolate){
+                          
+                          data0[,input$Variable_to_SE] <- na_interpolation(data0[,input$Variable_to_SE], option = "spline")
+                          
+                  } 
+                  
+                  if(input$couples_09_105){
+                          
+                          data <- SamplingFrequencyStats(data0,longest_gap_tolerated=1500, lower_limit = 0.9, upper_limit = 1.06)
+                          
+                  } else {
+                          
+                          data <- SamplingFrequencyStats(data0,longest_gap_tolerated=1500)
+                          
+                  }
+                  
+                  
+                  if(identical(data[1,2], "t > 25 minutes")){
+                          showModal(dataModal())
+                          
+                          
+                           data <- data0
+                          
+                  } else{
+                          data <- data %>% select(-time_diff)
+                          data$group <- ifelse(apply(as.data.frame(data[, colnames(data) %in% input$selectVariables]), 1, anyNA), "Missing Value", "Valid Range")
+                          data$colgroup <- ifelse(data$group=="Valid Range" & data$na=="y", "Corrected", data$group)
+                          data$na <- NULL
+                          
+                  }
+                  
+                  return(data)
+                  
+          } else {
+                  
+                  showModal(modalDialog(
+                          title = "Variable of study not selected",
+                          paste0("Selected variables to display missing values must include ", input$Variable_to_SE)
+                  ))
+          }
   })
   
-  observeEvent(ncol(data0())== 6,{   #only have the 6th column when pressed "Plot button" before
+  observeEvent(ncol(data0())== 7,{   #only have the 6th column when pressed "Plot button" before
     vals$data <- data0()
   })
 
     observeEvent(input$ok, {    # Case when we continue with the analysis even though a t>25 minutes gap found
       
       data <- data0()
-
-      if(input$interpolate){
-        
-        data[,input$Variable_to_SE] <- na_interpolation(data[,input$Variable_to_SE], option = "spline")
-        
-      } 
       
-      if(input$couples_09_105){
-        
-        data <- SamplingFrequencyStats(data,longest_gap_tolerated=Inf, lower_limit = 0.9, upper_limit = 1.06)
-        
-      } else {
-        
-        data <- SamplingFrequencyStats(data,longest_gap_tolerated=Inf)
-        
-      }
+      
+       if(input$couples_09_105){
+         data <- SamplingFrequencyStats(data,longest_gap_tolerated=Inf, lower_limit = 0.9, upper_limit = 1.06)
+         
+       } else {
+               
+       data <- SamplingFrequencyStats(data,longest_gap_tolerated=Inf)
+         
+       }
       
       data <- data %>% select(-time_diff)
       data$group <- ifelse(apply(as.data.frame(data[, colnames(data) %in% input$selectVariables]), 1, anyNA), "Missing Value", "Valid Range")
+      data$colgroup <- ifelse(data$group=="Valid Range" & data$na=="y", "Corrected", data$group)
+      data$na <- NULL
+      
       vals$data <- data
       removeModal()
       })
@@ -155,11 +157,13 @@ shinyServer(function(input, output, session) {
     req("group" %in% names(vals$data))
     req(filename_new() == filename_old())
     
-    myColors <- c("#00BFC4", "#F8766D") 
-    names(myColors) <- c("Valid Range", "Missing Value")
+    myColors <- c("Valid Range"="#00BFC4", "Corrected"="#0905f0", "Missing Value"="#F8766D") 
+    # names(myColors) <- c("Valid Range", "Missing Value", "OTHER")
+    # names(myColors) <- c("n", NA, "y")
     
-    ggplot(vals$data, aes(x = Date.Time, y =  group, color= group)) +
-      scale_colour_manual(values = myColors) +
+    # ggplot(vals$data, aes(x = Date.Time, y =  group, color= group)) +
+    ggplot(vals$data, aes(x = Date.Time, y =  group, color= colgroup)) +
+            scale_colour_manual(values = myColors) +
       geom_point() +
       labs(x = "Date and Time", y = "Data Quality", colour = "Data Quality") +
       coord_cartesian(xlim = ranges$x, ylim = NULL, expand = TRUE) 

@@ -189,7 +189,7 @@ SamplingFrequencyStats <- function(dataFrame,longest_gap_tolerated=1500, lower_l
     
     outTime <- which(dataFrame$time_diff < lower_limit | dataFrame$time_diff > upper_limit)
     
-    dataFrame[rownames(dataFrame) %in% outTime, 2:(ncol(dataFrame)-1)] <- NA
+    dataFrame[rownames(dataFrame) %in% outTime, 2:(ncol(dataFrame)-2)] <- NA
     dataFrame[Missing] <- "Missing Column"  #Refill NA values introduced
     
     return(dataFrame)
